@@ -6,11 +6,11 @@ This skill owns no Mermail tools. It reads the inbox through the mail skills and
 
 | Step | Owner | Tools |
 | --- | --- | --- |
-| Find the request | `mermail-agent-inbox` | `list_mailboxes`, `list_messages`, `get_message` |
+| Find the request | `mermail-manage-inbox` | `list_emails`, `get_email`, `get_thread` |
 | Check the money | `mermail-agent-wallet` | `get_paybox_connection`, `get_agent_wallet_portfolio` |
 | Convert, only if the human approves it separately | `mermail-agent-wallet` | `paybox_request_swap` |
 | Pay the provider | `mermail-agent-wallet` | `paybox_request_transfer` or `paybox_pay_x402` |
-| Reply with the receipt | `mermail-compose-email` | `send_message` (external effect, own approval) |
+| Reply with the receipt | `mermail-compose-email` | `reply_to_email` (external effect, own approval) |
 
 Do not duplicate ownership of any tool above. Route to the owning skill.
 
