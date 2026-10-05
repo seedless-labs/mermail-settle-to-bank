@@ -28,7 +28,7 @@ demo/mermail-settle-to-bank-demo.mp4   the demo video
 
 https://github.com/user-attachments/assets/d52b50f6-361e-4a7d-98c8-597f62288e56
 
-About 4 minutes. A live Mermail inbox gets two emails: an invoice from a known contractor, and a "new bank details" email with a lookalike sender. The agent pays the invoice to the approved account after one approval, refuses the new account, and Mermail's own scan had already tagged the second email Suspicious and Urgent. Mermail calls are live; the settlement provider is sandboxed, so nothing moved. Full-quality file: [demo/mermail-settle-to-bank-demo.mp4](demo/mermail-settle-to-bank-demo.mp4).
+About 4 minutes. A live Mermail inbox gets two emails: an invoice from a known contractor, and a "new bank details" email with a lookalike sender. The agent pays the invoice to the approved account after one approval, refuses the new account, and Mermail's own scan had already tagged the second email Suspicious and Urgent. Mermail calls are live; the settlement provider is sandboxed, so nothing moved. Full-quality file: [demo/mermail-settle-to-bank-demo.mp4](demo/mermail-settle-to-bank-demo.mp4). Posted on X: [x.com/francis_codex/status/2107076325357867167](https://x.com/francis_codex/status/2107076325357867167).
 
 ## Run it yourself
 
