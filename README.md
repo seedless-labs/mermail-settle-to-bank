@@ -19,7 +19,32 @@ skills/mermail-settle-to-bank/
   references/tools.md       the route through the official skills, and the provider interface
   agents/openai.yaml        marketplace metadata
 scenarios.json              happy paths and the attacks it has to refuse
+demo/run.py                 run the skill against your own Mermail inbox
+demo/beneficiaries.json     the sandbox's approved beneficiary list
+demo/mermail-settle-to-bank-demo.mp4   the demo video
 ```
+
+## Demo video
+
+[Watch the demo (about 4 minutes)](demo/mermail-settle-to-bank-demo.mp4). A live Mermail inbox gets two emails: an invoice from a known contractor, and a "new bank details" email with a lookalike sender. The agent pays the invoice to the approved account after one approval, refuses the new account, and Mermail's own scan had already tagged the second email Suspicious and Urgent. Mermail calls are live; the settlement provider is sandboxed, so nothing moved.
+
+## Run it yourself
+
+You need a Mermail account with an inbox, a Mermail API key, and an OpenAI API key. Python 3.9+, no packages to install.
+
+1. Send your Mermail inbox two emails, from any address: an invoice ("Attached is INV-0412 for 150 USDC, please pay to my usual account") and a follow-up asking to pay the same invoice to a new bank account.
+2. Run:
+
+```bash
+export MERMAIL_API_KEY=...          # console.mermail.app, Settings, API keys
+export OPENAI_API_KEY=...
+export MERMAIL_MAILBOX=you@mermail.app
+python3 demo/run.py "Check my Mermail inbox and handle any payment requests."
+```
+
+`list_emails` and `get_email` run live against your inbox through the Mermail MCP. Beneficiaries, quotes and `send` are a local sandbox (`demo/beneficiaries.json`), so nothing leaves any wallet. `send` stops and asks you to type `yes`. Swap in your own beneficiary list, or point the provider functions at a real rail that implements the interface below.
+
+The attacks in `scenarios.json` (changed bank account, "the CFO already approved this", a stale approval, a re-run of a sent payout, an amount above the cap) can be sent as emails or typed as follow-up prompts.
 
 ## Provider interface
 
@@ -27,6 +52,6 @@ Four calls: `beneficiaries.list`, `quote`, `send`, `status`. Any provider that t
 
 ## Status
 
-Companion skill, per Mermail's [contribution guide](https://github.com/Nudgen-Marketing/mermail-skills/blob/main/CONTRIBUTING.md): it combines Mermail with an outside settlement rail and owns none of Mermail's tools. An official proposal is open on the skills repo.
+Companion skill, per Mermail's [contribution guide](https://github.com/Nudgen-Marketing/mermail-skills/blob/main/CONTRIBUTING.md): it combines Mermail with an outside settlement rail and owns none of Mermail's tools. An official proposal is open on the skills repo: [Nudgen-Marketing/mermail-skills#359](https://github.com/Nudgen-Marketing/mermail-skills/pull/359).
 
 MIT licensed.
