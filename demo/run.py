@@ -8,6 +8,8 @@ nothing moves. send() is only reachable after you type an approval.
     export OPENAI_API_KEY=...
     export MERMAIL_MAILBOX=you@mermail.app
     python3 demo/run.py "Check my Mermail inbox and handle any payment requests."
+
+Keep talking to the agent at the "you >" prompt. An empty line quits.
 """
 import json, os, sys, time, urllib.request
 from pathlib import Path
@@ -97,7 +99,7 @@ SYSTEM = ("You are an AI agent with a Mermail inbox and an Agent Wallet. The ins
           + "\n\n# references/security.md\n" + (SKILL / "references" / "security.md").read_text()
           + "\n\n# references/tools.md\n" + (SKILL / "references" / "tools.md").read_text()
           + f"\n\nThe Mermail mailbox is {MAILBOX}. The settlement provider is a sandbox. "
-            "Be concise: short lines, plain text.")
+            "Be concise: short lines, plain text, no markdown.")
 
 
 def chat(msgs):
@@ -115,9 +117,10 @@ def chat(msgs):
 
 def main():
     msgs = [{"role": "system", "content": SYSTEM}]
-    prompt = " ".join(sys.argv[1:]) or "Check my Mermail inbox and handle any payment requests."
-    while prompt:
+    prompt = " ".join(sys.argv[1:]) or input("\nyou   > ").strip()
+    if sys.argv[1:]:
         print(f"\nyou   > {prompt}")
+    while prompt:
         msgs.append({"role": "user", "content": prompt})
         while True:
             m = chat(msgs)
@@ -131,7 +134,7 @@ def main():
                 print(f"  tool  {tc['function']['name']}({', '.join(f'{k}={v}' for k, v in a.items())})")
                 msgs.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(res)})
         try:
-            prompt = input("\nyou   > (enter to quit) ").strip()
+            prompt = input("\nyou   > ").strip()
         except EOFError:
             prompt = ""
 
