@@ -11,7 +11,7 @@ nothing moves. send() is only reachable after you type an approval.
 
 Keep talking to the agent at the "you >" prompt. An empty line quits.
 """
-import json, os, sys, time, urllib.request
+import json, math, os, sys, time, urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -37,7 +37,12 @@ def mermail(name, args):
 
 
 # Sandbox settlement provider: same interface as SKILL.md describes.
-QUOTES = {}
+# The rules below are enforced here, in code. The model is never trusted to keep them.
+QUOTES, SENT, SEEN = {}, {}, {}
+QUOTE_TTL_S = 120
+CLEAN = {x.strip().lower() for x in os.environ.get("MERMAIL_CLEAN_STATUSES", "clean,safe,passed").split(",") if x.strip()}
+
+
 def provider(name, a):
     if name == "beneficiaries_list":
         return BENEFICIARIES
@@ -45,19 +50,49 @@ def provider(name, a):
         ben = next((b for b in BENEFICIARIES if b["id"] == a.get("beneficiary_id")), None)
         if not ben:
             return {"error": "unknown beneficiary"}
-        amt = float(a.get("amount", 0))
+        mail = SEEN.get(str(a.get("email_id")))
+        if not mail:
+            return {"error": "no quote: read the request with get_email first and pass its id as email_id"}
+        if str(mail.get("scan_status") or "").lower() not in CLEAN:
+            return {"error": f"no quote: mermail scan status is {mail.get('scan_status')!r}, not clean"}
+        try:
+            amt = float(a.get("amount"))
+        except (TypeError, ValueError):
+            return {"error": "amount must be a number"}
+        if not math.isfinite(amt) or amt <= 0:
+            return {"error": "amount must be a finite number above zero"}
+        amt = round(amt, 6)
         q = {"quote_id": f"q_{len(QUOTES)+1:04d}", "beneficiary": ben["id"], "amount_in_usdc": amt,
              "rate": ben["sandbox_rate"], "fee_usdc": round(amt * 0.005, 2),
              "fee_note": "fee is taken from the amount", "total_leaving_wallet_usdc": amt,
              "amount_out": round(amt * 0.995 * ben["sandbox_rate"], 2), "currency": ben["currency"],
-             "expires_in_s": 120}
-        QUOTES[q["quote_id"]] = q
+             "expires_in_s": QUOTE_TTL_S, "email_id": mail["id"], "urgent": bool(mail.get("is_urgent"))}
+        QUOTES[q["quote_id"]] = {**q, "expires_at": time.time() + QUOTE_TTL_S, "used": False}
         return q
     if name == "send":
-        if input(f"\n  approve payout {a.get('quote_id')}? type yes: ").strip().lower() != "yes":
+        key = str(a.get("idempotency_key") or "").strip()
+        if not key:
+            return {"error": "idempotency_key is required"}
+        if key in SENT:  # same key: report the first result, never pay again
+            return {**SENT[key], "replayed": True}
+        q = QUOTES.get(str(a.get("quote_id")))
+        if not q:
+            return {"error": "unknown quote"}
+        if q["used"]:
+            return {"error": "this quote was already sent"}
+        if time.time() >= q["expires_at"]:
+            return {"error": "quote expired: get a fresh quote and a fresh approval"}
+        print(f"\n  payout {q['quote_id']} to {q['beneficiary']}: {q['amount_in_usdc']} usdc leaves the wallet, "
+              f"fee {q['fee_usdc']} usdc, bank gets {q['amount_out']} {q['currency']} (from email {q['email_id']})")
+        if q["urgent"]:
+            print("  warning: mermail marked this email urgent. pressure to pay fast is a fraud signal.")
+        if input("  approve this payout? type yes: ").strip().lower() != "yes":
             return {"status": "not_sent", "reason": "human did not approve"}
-        return {"reference": "SANDBOX-" + a.get("quote_id", ""), "status": "pending",
-                "idempotency_key": a.get("idempotency_key")}
+        if time.time() >= q["expires_at"]:  # the approval prompt can outlive the quote
+            return {"error": "quote expired while waiting for approval: get a fresh quote"}
+        q["used"] = True
+        SENT[key] = {"reference": "SANDBOX-" + q["quote_id"], "status": "pending", "idempotency_key": key}
+        return SENT[key]
     if name == "status":
         return {"reference": a.get("reference"), "status": "pending"}
     if name == "get_agent_wallet_portfolio":
@@ -75,6 +110,7 @@ def tool(name, a):
     if name == "get_email":
         t = mermail("get_email", {"mailboxId": MAILBOX, "emailId": a.get("emailId"),
                                   "query": {"agent_safe_content": True, "max_body_chars": 2000}})
+        SEEN[str(t.get("id"))] = {k: t.get(k) for k in ("id", "scan_status", "is_urgent")}
         return {k: t[k] for k in ("id", "subject", "sender", "date", "body", "scan_status", "is_urgent", "category")
                 if t.get(k) is not None}
     return provider(name, a) or {"error": "unknown tool"}
@@ -88,7 +124,8 @@ TOOLS = [
     F("beneficiaries_list", "Settlement provider: beneficiaries the human approved out of band (read-only)", {}),
     F("get_agent_wallet_portfolio", "Agent Wallet balances", {}),
     F("spend_cap", "Remaining payout cap (read-only)", {}),
-    F("quote", "Settlement provider: live quote", {"beneficiary_id": {"type": "string"}, "amount": {"type": "number"}}),
+    F("quote", "Settlement provider: live quote. email_id is the request email, already read with get_email",
+      {"beneficiary_id": {"type": "string"}, "amount": {"type": "number"}, "email_id": {"type": "string"}}),
     F("send", "Settlement provider: send a quoted payout. Only after fresh human approval.",
       {"quote_id": {"type": "string"}, "idempotency_key": {"type": "string"}}),
     F("status", "Settlement provider: payout status", {"reference": {"type": "string"}}),
